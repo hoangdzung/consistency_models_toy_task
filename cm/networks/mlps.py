@@ -19,7 +19,50 @@ class GaussianFourierProjection(nn.Module):
     def forward(self, x):
         x_proj = x[:, None] * self.W[None, :] * 2 * np.pi
         return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
-    
+
+
+def round_ste(z):
+    """Round with straight through gradients."""
+    zhat = torch.round(z)
+    return z + (zhat - z).detach()
+
+class FSQ(nn.Module):
+    """Quantizer."""
+
+    def __init__(self, levels: list[int], eps: float = 1e-3):
+        super(FSQ, self).__init__()
+        self._levels = levels
+        self._eps = eps
+        self._levels_np = np.asarray(levels)
+
+    @property
+    def num_dimensions(self) -> int:
+        """Number of dimensions expected from inputs."""
+        return len(self._levels)
+
+    @property
+    def codebook_size(self) -> int:
+        """Size of the codebook."""
+        return np.prod(self._levels)
+
+    def bound(self, z: torch.Tensor) -> torch.Tensor:
+        """Bound `z`, an array of shape (..., d)."""
+        half_l = (self._levels_np - 1) * (1 - self._eps) / 2
+        offset = torch.where(torch.tensor(np.mod(self._levels_np, 2) == 1), 0.0, 0.5)
+        shift = torch.tan(torch.tensor(offset / half_l))
+        return torch.tanh(z + shift) * torch.tensor(half_l) - offset
+
+    def quantize(self, z: torch.Tensor) -> torch.Tensor:
+        """Quanitzes z, returns quantized zhat, same shape as z."""
+        quantized = round_ste(self.bound(z))
+
+        # Renormalize to [-1, 1].
+        half_width = self._levels_np // 2
+        return quantized / torch.tensor(half_width)
+
+    def forward(self, x):
+        return self.quantize(x)
+
 
 class MLPNetwork(nn.Module):
     """
@@ -33,9 +76,11 @@ class MLPNetwork(nn.Module):
         hidden_dim: int = 100,
         num_hidden_layers: int = 1,
         output_dim=1,
+        L_fsq=-1,
         device: str = 'cuda'
     ):
         super(MLPNetwork, self).__init__()
+        self.L_fsq = L_fsq
         self.network_type = "mlp"
         # define number of variables in an input sequence
         self.input_dim = input_dim
@@ -53,6 +98,9 @@ class MLPNetwork(nn.Module):
             ]
         )
         self.layers.append(nn.Linear(self.hidden_dim, self.output_dim))
+        if self.L_fsq > 1:
+            self.fsq_layer = self.num_hidden_layers // 2 + 1
+            self.layers.insert(self.fsq_layer, FSQ([L_fsq] * self.hidden_dim))
 
         # build the activation layer
         self.act = nn.Mish()
@@ -69,6 +117,8 @@ class MLPNetwork(nn.Module):
                     out = layer(out) # + out
                 else:
                     out = layer(out)
+            if self.L_fsq > 1 and idx == self.fsq_layer:
+                continue
             if idx < len(self.layers) - 1:
                 out = self.act(out)
         return out
@@ -93,7 +143,8 @@ class ConistencyScoreNetwork(nn.Module):
             num_hidden_layers: int = 1,
             output_dim=1,
             device: str = 'cuda',
-            cond_conditional: bool = True
+            cond_conditional: bool = True,
+            L_fsq: int = -1,
     ):
         super(ConistencyScoreNetwork, self).__init__()
         #  Gaussian random feature embedding layer for time
@@ -111,6 +162,7 @@ class ConistencyScoreNetwork(nn.Module):
                 hidden_dim,
                 num_hidden_layers,
                 output_dim,
+                L_fsq,
                 device
             ).to(device)
 

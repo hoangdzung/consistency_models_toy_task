@@ -17,6 +17,7 @@ if __name__ == "__main__":
     device = 'cpu'
     n_sampling_steps = 10
     simultanous_training = False
+    L_fsq = 5
     cm = CDConsistencyModel(
         lr=1e-4,
         sampler_type='onestep',
@@ -25,13 +26,14 @@ if __name__ == "__main__":
         sigma_min=0.05,
         sigma_max=1,
         conditioned=False,
-        device='cuda',
+        device=device,
         rho=7,
         t_steps_min=100,
         t_steps=100,
         ema_rate=0.999,
         n_sampling_steps=n_sampling_steps,
         use_karras_noise_conditioning=True,    
+        L_fsq=L_fsq,
     )
     train_epochs = 20002
     # chose one of the following toy tasks: 'three_gmm_1D' 'uneven_two_gmm_1D' 'two_gmm_1D' 'single_gaussian_1D'

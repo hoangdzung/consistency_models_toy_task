@@ -67,7 +67,8 @@ class CDConsistencyModel(nn.Module):
             use_karras_noise_conditioning: bool = True,     
             adapted_karras_noise_conditioning: bool = False,
             sigma_sample_density_type: str = 'loglogistic',
-            pre_train_diffusion_on_discrete: bool = False
+            pre_train_diffusion_on_discrete: bool = False,
+            L_fsq: int = -1
     ) -> None:
         super().__init__()
         self.ema_rate = ema_rate
@@ -77,10 +78,11 @@ class CDConsistencyModel(nn.Module):
             time_embed_dim=4,
             cond_dim=1,
             cond_mask_prob=0.0,
-            num_hidden_layers=4,
+            num_hidden_layers=5,
             output_dim=1,
             device=device,
-            cond_conditional=conditioned
+            cond_conditional=conditioned,
+            L_fsq=L_fsq,
         ).to(device)
         self.target_model = ConistencyScoreNetwork(
             x_dim=1,
@@ -88,10 +90,11 @@ class CDConsistencyModel(nn.Module):
             time_embed_dim=4,
             cond_dim=1,
             cond_mask_prob=0.0,
-            num_hidden_layers=4,
+            num_hidden_layers=5,
             output_dim=1,
             device=device,
-            cond_conditional=conditioned
+            cond_conditional=conditioned,
+            L_fsq=L_fsq,
         ).to(device)
         # now we also need an additional teacher model 
         self.diffusion_model = ConistencyScoreNetwork(
@@ -100,10 +103,11 @@ class CDConsistencyModel(nn.Module):
             time_embed_dim=4,
             cond_dim=1,
             cond_mask_prob=0.0,
-            num_hidden_layers=4,
+            num_hidden_layers=5,
             output_dim=1,
             device=device,
-            cond_conditional=conditioned
+            cond_conditional=conditioned,
+            L_fsq=-1, # not use fsq for teacher
         ).to(device)
         
         self.simultanous_training = simultanous_training
