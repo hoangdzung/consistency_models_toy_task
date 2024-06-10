@@ -4,6 +4,7 @@ from tqdm import tqdm
 from cm.cd_cm import CDConsistencyModel
 from cm.toy_tasks.data_generator import DataGenerator
 from cm.visualization.vis_utils import plot_main_figure
+import torch 
 
 
 """
@@ -14,7 +15,7 @@ update the weights of the consistency model and the diffusion model.
 
 if __name__ == "__main__":
 
-    device = 'cpu'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     n_sampling_steps = 10
     simultanous_training = False
     L_fsq = 5

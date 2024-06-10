@@ -47,18 +47,19 @@ class FSQ(nn.Module):
 
     def bound(self, z: torch.Tensor) -> torch.Tensor:
         """Bound `z`, an array of shape (..., d)."""
-        half_l = (self._levels_np - 1) * (1 - self._eps) / 2
-        offset = torch.where(torch.tensor(np.mod(self._levels_np, 2) == 1), 0.0, 0.5)
-        shift = torch.tan(torch.tensor(offset / half_l))
-        return torch.tanh(z + shift) * torch.tensor(half_l) - offset
+        device = z.device
+        half_l = torch.tensor((self._levels_np - 1) * (1 - self._eps) / 2, device=device)
+        offset = torch.where(torch.tensor(np.mod(self._levels_np, 2) == 1, device=device), torch.tensor(0.0, device=device), torch.tensor(0.5, device=device))
+        shift = torch.tan(offset / half_l)
+        return torch.tanh(z + shift) * half_l - offset
 
     def quantize(self, z: torch.Tensor) -> torch.Tensor:
-        """Quanitzes z, returns quantized zhat, same shape as z."""
+        """Quantizes z, returns quantized zhat, same shape as z."""
         quantized = round_ste(self.bound(z))
 
         # Renormalize to [-1, 1].
-        half_width = self._levels_np // 2
-        return quantized / torch.tensor(half_width)
+        half_width = torch.tensor(self._levels_np // 2, device=z.device)
+        return quantized / half_width
 
     def forward(self, x):
         return self.quantize(x)
