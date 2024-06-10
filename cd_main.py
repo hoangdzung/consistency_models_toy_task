@@ -5,7 +5,7 @@ from cm.cd_cm import CDConsistencyModel
 from cm.toy_tasks.data_generator import DataGenerator
 from cm.visualization.vis_utils import plot_main_figure
 import torch 
-
+import os
 
 """
 Discrete consistency distillation training of the consistency model on a toy task.
@@ -14,11 +14,12 @@ update the weights of the consistency model and the diffusion model.
 """
 
 if __name__ == "__main__":
-
+    save_path = sys.argv[1]
+    os.makedirs(save_path, exists_ok=True)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     n_sampling_steps = 10
     simultanous_training = False
-    L_fsq = 5
+    L_fsq = int(sys.argv[2])
     cm = CDConsistencyModel(
         lr=1e-4,
         sampler_type='onestep',
@@ -71,7 +72,7 @@ if __name__ == "__main__":
             sampling_method='euler', 
             n_sampling_steps=n_sampling_steps,
             x_range=[-4, 4], 
-            save_path='./plots/cd'
+            save_path=save_path
         )
     
     plot_main_figure(
@@ -81,7 +82,7 @@ if __name__ == "__main__":
         train_epochs, 
         sampling_method='onestep', 
         x_range=[-4, 4], 
-        save_path='./plots/cd'
+        save_path=save_path
     )
     plot_main_figure(
         data_manager.compute_log_prob, 
@@ -91,7 +92,7 @@ if __name__ == "__main__":
         sampling_method='multistep', 
         n_sampling_steps=n_sampling_steps,
         x_range=[-4, 4], 
-        save_path='./plots/cd'
+        save_path=save_path
     )
             
     print('done')

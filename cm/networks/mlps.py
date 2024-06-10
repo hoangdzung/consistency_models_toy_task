@@ -62,7 +62,7 @@ class FSQ(nn.Module):
         return quantized / half_width
 
     def forward(self, x):
-        return self.quantize(x)
+        return self.quantize(x).float()
 
 
 class MLPNetwork(nn.Module):
